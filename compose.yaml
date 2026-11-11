@@ -10,6 +10,11 @@ services:
     environment:
       COMPOSER_CACHE_DIR: /tmp/composer-cache
       SERVER_HOST: 0.0.0.0
+      LINKY_TOKEN: ${LINKY_TOKEN:-}
+      LINKY_PRM: ${LINKY_PRM:-}
+      LINKY_BASE_URL: ${LINKY_BASE_URL:-https://conso.boris.sh}
+      LINKY_TIMEOUT: ${LINKY_TIMEOUT:-15}
+      LINKY_USER_AGENT: ${LINKY_USER_AGENT:-stefanpost/laralinky}
     ports:
       - "${APP_PORT:-8000}:8000"
     command:
