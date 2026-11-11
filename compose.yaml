@@ -1,0 +1,25 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /var/www/html
+    volumes:
+      - .:/var/www/html
+      - composer-cache:/tmp/composer-cache
+    environment:
+      COMPOSER_CACHE_DIR: /tmp/composer-cache
+      SERVER_HOST: 0.0.0.0
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    command:
+      - sh
+      - -lc
+      - >-
+        if [ ! -x vendor/bin/testbench ]; then
+          COMPOSER_NO_INTERACTION=1 composer install;
+        fi;
+        composer serve
+
+volumes:
+  composer-cache:

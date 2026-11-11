@@ -1,0 +1,8 @@
+.git
+.idea
+.vscode
+vendor
+build
+.phpunit.cache
+.phpunit.result.cache
+coverage
