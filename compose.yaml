@@ -14,7 +14,7 @@ services:
       LINKY_PRM: ${LINKY_PRM:-}
       LINKY_BASE_URL: ${LINKY_BASE_URL:-https://conso.boris.sh}
       LINKY_TIMEOUT: ${LINKY_TIMEOUT:-15}
-      LINKY_USER_AGENT: ${LINKY_USER_AGENT:-stefanpost268/laralinky}
+      LINKY_USER_AGENT: ${LINKY_USER_AGENT:-LaraLinky}
     ports:
       - "${APP_PORT:-8000}:8000"
     command:

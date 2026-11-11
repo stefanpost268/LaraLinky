@@ -37,7 +37,7 @@ final class Linky
         private readonly string $prm = '',
         private readonly string $baseUrl = self::API_HOST,
         private readonly float $timeout = 15,
-        private readonly string $userAgent = 'stefanpost268/laralinky',
+        private readonly string $userAgent = 'LaraLinky',
     ) {}
 
     /** @return list<string> */

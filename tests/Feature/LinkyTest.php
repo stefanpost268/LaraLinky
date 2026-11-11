@@ -81,6 +81,10 @@ it('registers a singleton from package configuration', function () {
 });
 
 it('explains when a token is missing from both configuration and command options', function () {
+    config()->set('laralinky.token', '');
+    config()->set('laralinky.prm', '');
+    Http::preventStrayRequests();
+
     $this->artisan('linky:fetch daily')
         ->expectsOutputToContain('Provide a token with --token or configure LINKY_TOKEN.')
         ->assertExitCode(1);
