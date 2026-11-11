@@ -1,11 +1,15 @@
 {
     "$schema": "https://getcomposer.org/schema.json",
     "name": "stefanpost/laralinky",
-    "description": "",
+    "description": "Laravel client for retrieving Linky electricity consumption and production data through Conso API",
     "keywords": [
         "laravel",
-        "laralinky",
-        "html"
+        "linky",
+        "enedis",
+        "conso-api",
+        "electricity",
+        "consumption",
+        "production"
     ],
     "homepage": "https://github.com/stefanpost/LaraLinky",
     "license": "MIT",
@@ -16,8 +20,9 @@
         }
     ],
     "require": {
-        "php": "^8.3",
-        "illuminate/support": "^12.0||^13.0"
+        "illuminate/http": "^12.0||^13.0",
+        "illuminate/support": "^12.0||^13.0",
+        "php": "^8.3"
     },
     "require-dev": {
         "larastan/larastan": "^3.9",
@@ -31,12 +36,12 @@
     },
     "autoload": {
         "psr-4": {
-            "Html\\Html\\": "src/"
+            "LaraLinky\\": "src/"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "Html\\Html\\Tests\\": "tests/",
+            "LaraLinky\\Tests\\": "tests/",
             "Workbench\\App\\": "workbench/app/",
             "Workbench\\Database\\Factories\\": "workbench/database/factories/",
             "Workbench\\Database\\Seeders\\": "workbench/database/seeders/"
@@ -68,7 +73,7 @@
             "vendor/bin/phpstan analyse"
         ],
         "test:types": [
-            "vendor/bin/pest --type-coverage --min=100"
+            "@php -d memory_limit=1G vendor/bin/pest --type-coverage --min=100"
         ],
         "test:unit": [
             "vendor/bin/pest --parallel"
@@ -84,8 +89,12 @@
     },
     "extra": {
         "laravel": {
-            "providers": [],
-            "aliases": []
+            "providers": [
+                "LaraLinky\\LinkyServiceProvider"
+            ],
+            "aliases": {
+                "Linky": "LaraLinky\\Facades\\Linky"
+            }
         }
     },
     "config": {
