@@ -2,6 +2,6 @@
 
 declare(strict_types=1);
 
-use Html\Html\Tests\TestCase;
+use LaraLinky\Tests\TestCase;
 
 uses(TestCase::class)->in(__DIR__);

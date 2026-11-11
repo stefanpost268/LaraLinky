@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace Html\Html\Tests;
+namespace LaraLinky\Tests;
 
+use LaraLinky\LinkyServiceProvider;
 use Orchestra\Testbench\TestCase as Orchestra;
 
 abstract class TestCase extends Orchestra
 {
     protected function getPackageProviders($app): array
     {
-        return [
-        ];
+        return [LinkyServiceProvider::class];
     }
 }
