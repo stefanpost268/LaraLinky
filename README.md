@@ -3,14 +3,19 @@
 </div>
 
 <p align="center">
-    <a href="https://packagist.org/packages/stefanpost/laralinky"><img src="https://img.shields.io/packagist/v/stefanpost/laralinky.svg?style=flat-square" alt="Packagist"></a>
-    <a href="https://packagist.org/packages/stefanpost/laralinky"><img src="https://img.shields.io/packagist/php-v/stefanpost/laralinky.svg?style=flat-square" alt="PHP from Packagist"></a>
+    <a href="https://packagist.org/packages/stefanpost/laralinky"><img src="https://img.shields.io/packagist/v/stefanpost/laralinky.svg?style=flat-square" alt="Packagist version"></a>
+    <a href="https://packagist.org/packages/stefanpost/laralinky"><img src="https://img.shields.io/packagist/php-v/stefanpost/laralinky.svg?style=flat-square" alt="PHP version"></a>
     <a href="https://packagist.org/packages/stefanpost/laralinky"><img src="https://badge.laravel.cloud/badge/stefanpost/laralinky?style=flat" alt="Laravel versions"></a>
     <a href="https://github.com/stefanpost268/LaraLinky/actions"><img src="https://img.shields.io/github/actions/workflow/status/stefanpost268/LaraLinky/tests.yml?branch=main&label=Tests&style=flat-square" alt="Tests"></a>
     <a href="https://packagist.org/packages/stefanpost/laralinky"><img src="https://img.shields.io/packagist/dt/stefanpost/laralinky.svg?style=flat-square" alt="Total downloads"></a>
 </p>
 
-LaraLinky is a Laravel package for retrieving electricity consumption and production data from Enedis through [Conso API](https://conso.boris.sh).
+LaraLinky is a Laravel client for retrieving electricity consumption and production data from Enedis through the [Conso API](https://conso.boris.sh). It can also synchronize daily consumption and hourly load curve data to your application's database.
+
+## Requirements
+
+- PHP 8.3 or later
+- Laravel 12 or 13
 
 ## Installation
 
@@ -20,26 +25,25 @@ Install the package with Composer:
 composer require stefanpost/laralinky
 ```
 
-Laravel discovers the service provider automatically.
-
-## Configuration
-
-You can publish the package configuration file:
+Laravel discovers the service provider automatically. Publish the configuration if you want to customize the package settings:
 
 ```bash
 php artisan vendor:publish --tag=laralinky-config
 ```
 
-Add your Conso API token and, optionally, a PRM to your Laravel application's `.env` file:
+Set your Conso API token in `.env`:
 
 ```dotenv
 LINKY_TOKEN=your.conso.api.jwt
+```
+
+The token identifies the PRMs you can access. API calls use the first PRM in the token by default; set `LINKY_PRM` to select another one for facade calls. The sync command processes all PRMs in the token unless you pass `--prm`.
+
+```dotenv
 LINKY_PRM=12345678901234
 ```
 
-The token authorizes access to the meters shared with your account. The PRM selects a meter; if omitted, LaraLinky uses the first PRM in the token. You can override the token and PRM for an individual Artisan request.
-
-Optional settings:
+Optional client settings:
 
 ```dotenv
 LINKY_BASE_URL=https://conso.boris.sh
@@ -47,22 +51,20 @@ LINKY_TIMEOUT=15
 LINKY_USER_AGENT=my-laravel-app
 ```
 
-Obtain your token from [conso.boris.sh](https://conso.boris.sh) after authorizing data sharing with Enedis. LaraLinky does not request consent or issue tokens.
+Get a token from [conso.boris.sh](https://conso.boris.sh) after authorizing data sharing with Enedis. LaraLinky uses an existing token; it does not request consent or issue tokens.
 
-## Retrieve data in PHP
+## Retrieve API data
 
-Resolve the client from Laravel's service container:
+Use `LaraLinky\\Facades\\Linky` to make requests. The methods return the decoded API response as an array:
 
 ```php
-use LaraLinky\Linky;
+use LaraLinky\Facades\Linky;
 
-$linky = app(Linky::class);
-
-$dailyConsumption = $linky->getDailyConsumption('2026-11-10', '2026-11-11');
-$consumptionCurve = $linky->getLoadCurve('2026-11-10', '2026-11-11');
-$maximumPower = $linky->getMaxPower('2026-11-01', '2026-12-01', 'P1M', 'PMA');
-$dailyProduction = $linky->getDailyProduction('2026-11-10', '2026-11-11');
-$productionCurve = $linky->getProductionLoadCurve('2026-11-10', '2026-11-11');
+$dailyConsumption = Linky::getDailyConsumption('2026-11-10', '2026-11-11');
+$loadCurve = Linky::getLoadCurve('2026-11-10', '2026-11-11');
+$maximumPower = Linky::getMaxPower('2026-11-01', '2026-12-01', 'P1M', 'PMA');
+$dailyProduction = Linky::getDailyProduction('2026-11-10', '2026-11-11');
+$productionCurve = Linky::getProductionLoadCurve('2026-11-10', '2026-11-11');
 ```
 
 Available methods:
@@ -73,52 +75,65 @@ Available methods:
 - `getDailyProduction($start, $end)`
 - `getProductionLoadCurve($start, $end)`
 
-The methods return the decoded Conso API response as an associative array. The load curves contain half-hour measurements. `getMaxPower` accepts optional measurement-step and physical-quantity values, such as `P1M` and `PMA`.
+Dates use the `YYYY-MM-DD` format. The load curves contain half-hour measurements. The optional `getMaxPower` arguments set the measurement step and physical quantity, such as `P1M` and `PMA`. Requests that fail throw `LaraLinky\Exceptions\ApiException`, which exposes the HTTP status and response details when available.
 
-You can also call the client through the facade:
+## Store and query consumption data
 
-```php
-use LaraLinky\Facades\Linky;
-
-$data = Linky::getDailyConsumption('2026-11-10', '2026-11-11');
-```
-
-Failed API requests throw `LaraLinky\Exceptions\ApiException`. The exception provides the HTTP status, response body, request, and response when available.
-
-## Artisan command
-
-The package provides `linky:fetch` for retrieving and formatting data:
+Publish the package migrations and run them:
 
 ```bash
-php artisan linky:fetch daily --start=2026-11-10 --end=2026-11-11 --format=json
-php artisan linky:fetch loadcurve --prm=12345678901234 --format=pretty
-php artisan linky:fetch maxpower --pas=P1M --grandeur-physique=PMA --format=csv --output=storage/app/power.csv
-php artisan linky:fetch dailyprod --token=your.conso.api.jwt --prm=12345678901234
+php artisan vendor:publish --tag=laralinky-migrations
+php artisan migrate
 ```
 
-Supported types are `daily`, `loadcurve`, `maxpower`, `dailyprod`, and `loadcurveprod`. The start date defaults to yesterday and the end date to today. Output formats are `pretty`, `json`, and `csv`; use `--output` to save results to a file. You can select a meter with `--prm` and provide a per-request token with `--token`.
+The migrations create `laralinky_meters`, `laralinky_daily_consumption`, and `laralinky_hourly_consumption`. To use a different database connection or table prefix, configure `laralinky.storage.database.connection` or `laralinky.storage.database.table_prefix` in `config/laralinky.php`.
+
+Synchronize daily consumption and hourly consumption load curve data with `linky:sync`:
+
+```bash
+php artisan linky:sync
+php artisan linky:sync --type=daily --prm=12345678901234
+php artisan linky:sync --type=hourly --start=2026-11-01 --end=2026-11-10
+```
+
+The command defaults to both data types, all PRMs in `LINKY_TOKEN`, and the period from two days ago through today. Choose `--type=daily` or `--type=hourly` to sync one data type; use `--prm`, `--start`, and `--end` to narrow the sync. Repeated syncs update existing records.
+
+The package registers the command to run hourly. Enable Laravel's scheduler using the normal `schedule:run` cron entry or a continuously running `schedule:work` process.
+
+Query stored records with the `LaraLinky` facade:
+
+```php
+use LaraLinky\Facades\LaraLinky;
+
+$meters = LaraLinky::meters()->get();
+$meter = LaraLinky::meter('12345678901234');
+$daily = $meter->dailyConsumption()->get();
+$hourly = $meter->hourlyConsumption()->get();
+```
+
+The package also provides Eloquent models and repositories: `LaraLinky\Models\Meter`, `DailyConsumption`, and `HourlyConsumption`, plus matching classes under `LaraLinky\Repositories`. A meter has `dailyConsumption()` and `hourlyConsumption()` relationships.
 
 ## Local development
 
-Start the package workbench in Docker:
+Build and start the Docker workbench:
 
 ```bash
 docker compose up --build
 ```
 
-The workbench is available at `http://localhost:8000`. Its `.env` file should be in the same directory as `compose.yaml`; Docker Compose passes the `LINKY_*` settings into the container. Recreate the workbench after changing that file:
+The workbench is available at `http://localhost:8000`. Put its `.env` file beside `compose.yaml`; Docker Compose passes the `LINKY_*` settings to the app container. Recreate the container after changing the file:
 
 ```bash
 docker compose up -d --force-recreate app
 ```
 
-Run the workbench command through Testbench:
+Run a sync in the workbench with:
 
 ```bash
-docker compose exec app php vendor/bin/testbench linky:fetch loadcurve --start=2026-11-10 --end=2026-11-11 --prm=12345678901234 --format=json
+docker compose exec app php vendor/bin/testbench linky:sync --type=hourly --prm=12345678901234
 ```
 
-Pass `--token=your.conso.api.jwt` to provide a token directly for that request. Run the package checks with:
+Run the package checks with:
 
 ```bash
 docker compose run --rm app composer test
@@ -127,15 +142,15 @@ docker compose run --rm app composer lint:check
 
 ## Changelog
 
-See [CHANGELOG](CHANGELOG.md) for release notes.
+See [CHANGELOG.md](CHANGELOG.md) for release notes.
 
 ## Contributing
 
-Contributions are welcome. Please read the [contributing guide](.github/CONTRIBUTING.md).
+Contributions are welcome. See the [contributing guide](.github/CONTRIBUTING.md).
 
 ## Security
 
-Please see the [security policy](.github/SECURITY.md) to report a vulnerability.
+Report vulnerabilities according to the [security policy](.github/SECURITY.md).
 
 ## Credits
 
@@ -144,4 +159,4 @@ Please see the [security policy](.github/SECURITY.md) to report a vulnerability.
 
 ## License
 
-LaraLinky is open-sourced software licensed under the [MIT license](LICENSE.md).
+LaraLinky is open-source software licensed under the [MIT License](LICENSE.md).
