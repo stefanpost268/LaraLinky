@@ -53,9 +53,19 @@ LINKY_USER_AGENT=my-laravel-app
 
 Get a token from [conso.boris.sh](https://conso.boris.sh) after authorizing data sharing with Enedis. LaraLinky uses an existing token; it does not request consent or issue tokens.
 
-## Retrieve API data
+## What you can do with LaraLinky
 
-Use `LaraLinky\\Facades\\Linky` to make requests. The methods return the decoded API response as an array:
+LaraLinky gives your application three ways to work with Linky data:
+
+- Retrieve consumption, production, load curve, and maximum power data directly from the Conso API.
+- Store daily consumption and hourly consumption load curve data in your application's database, then query it with Eloquent.
+- Synchronize stored consumption data on demand or through Laravel's scheduler.
+
+The package does not store API responses automatically. Only the sync action writes daily and hourly consumption records to the package tables.
+
+## Retrieve data from the API
+
+Use `LaraLinky\\Facades\\Linky` to make requests. The methods return the decoded API response as an array; these calls do not save the response to the database:
 
 ```php
 use LaraLinky\Facades\Linky;
@@ -88,18 +98,6 @@ php artisan migrate
 
 The migrations create `laralinky_meters`, `laralinky_daily_consumption`, and `laralinky_hourly_consumption`. To use a different database connection or table prefix, configure `laralinky.storage.database.connection` or `laralinky.storage.database.table_prefix` in `config/laralinky.php`.
 
-Synchronize daily consumption and hourly consumption load curve data with `linky:sync`:
-
-```bash
-php artisan linky:sync
-php artisan linky:sync --type=daily --prm=12345678901234
-php artisan linky:sync --type=hourly --start=2026-11-01 --end=2026-11-10
-```
-
-The command defaults to both data types, all PRMs in `LINKY_TOKEN`, and the period from two days ago through today. Choose `--type=daily` or `--type=hourly` to sync one data type; use `--prm`, `--start`, and `--end` to narrow the sync. Repeated syncs update existing records.
-
-The package registers the command to run hourly. Enable Laravel's scheduler using the normal `schedule:run` cron entry or a continuously running `schedule:work` process.
-
 Query stored records with the `LaraLinky` facade:
 
 ```php
@@ -109,9 +107,37 @@ $meters = LaraLinky::meters()->get();
 $meter = LaraLinky::meter('12345678901234');
 $daily = $meter->dailyConsumption()->get();
 $hourly = $meter->hourlyConsumption()->get();
+
+// Query a data type directly, optionally filtering by PRM.
+$daily = LaraLinky::dailyConsumption('12345678901234')->get();
+$hourly = LaraLinky::hourlyConsumption()->where('value', '>', 0)->get();
 ```
 
 The package also provides Eloquent models and repositories: `LaraLinky\Models\Meter`, `DailyConsumption`, and `HourlyConsumption`, plus matching classes under `LaraLinky\Repositories`. A meter has `dailyConsumption()` and `hourlyConsumption()` relationships.
+
+## Manual sync
+
+Sync writes daily consumption and hourly load curve data to the package tables. It does not sync production or maximum power data. Trigger a sync through the facade:
+
+```php
+use LaraLinky\\Facades\\LaraLinky;
+
+$counts = LaraLinky::sync('2026-11-01', '2026-11-10');
+$counts = LaraLinky::sync('2026-11-01', '2026-11-10', '12345678901234', 'daily');
+// ['meters' => 1, 'daily' => 10, 'hourly' => 0]
+```
+
+Or use the Artisan command:
+
+```bash
+php artisan linky:sync
+php artisan linky:sync --type=daily --prm=12345678901234
+php artisan linky:sync --type=hourly --start=2026-11-01 --end=2026-11-10
+```
+
+The facade requires start and end dates. The command defaults to both data types, all PRMs in `LINKY_TOKEN`, and the period from two days ago through today. Choose `--type=daily` or `--type=hourly` to sync one data type; use `--prm`, `--start`, and `--end` to narrow the sync. Repeated syncs update existing records.
+
+The command is scheduled to run hourly. Enable Laravel's scheduler using the normal `schedule:run` cron entry or a continuously running `schedule:work` process.
 
 ## Local development
 
