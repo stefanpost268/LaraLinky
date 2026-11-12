@@ -18,12 +18,16 @@ final class DailyConsumption extends Model
 
     public function getTable(): string
     {
-        return config('laralinky.storage.database.table_prefix', 'laralinky_').'daily_consumption';
+        $prefix = config('laralinky.storage.database.table_prefix', 'laralinky_');
+
+        return (is_string($prefix) ? $prefix : 'laralinky_').'daily_consumption';
     }
 
     public function getConnectionName(): ?string
     {
-        return config('laralinky.storage.database.connection') ?: parent::getConnectionName();
+        $connection = config('laralinky.storage.database.connection');
+
+        return is_string($connection) && $connection !== '' ? $connection : parent::getConnectionName();
     }
 
     /** @return BelongsTo<Meter, $this> */

@@ -19,12 +19,16 @@ final class Meter extends Model
 
     public function getTable(): string
     {
-        return config('laralinky.storage.database.table_prefix', 'laralinky_').'meters';
+        $prefix = config('laralinky.storage.database.table_prefix', 'laralinky_');
+
+        return (is_string($prefix) ? $prefix : 'laralinky_').'meters';
     }
 
     public function getConnectionName(): ?string
     {
-        return config('laralinky.storage.database.connection') ?: parent::getConnectionName();
+        $connection = config('laralinky.storage.database.connection');
+
+        return is_string($connection) && $connection !== '' ? $connection : parent::getConnectionName();
     }
 
     /** @return HasMany<DailyConsumption, $this> */
