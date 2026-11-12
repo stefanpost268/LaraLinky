@@ -7,6 +7,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use LaraLinky\Exceptions\ApiException;
 use LaraLinky\Linky;
+use LaraLinky\Models\DailyConsumption;
+use LaraLinky\Models\HourlyConsumption;
+use LaraLinky\Models\Meter;
 use LaraLinky\Storage\DatabaseStorage;
 
 function linkyToken(array $claims = ['sub' => ['12345678901234', '98765432109876']]): string
@@ -104,9 +107,17 @@ it('stores daily records and updates them on repeated synchronization', function
     $storage->store('12345678901234', ['grandeur' => [['unite' => 'Wh', 'points' => [['d' => '2026-05-01 00:00:00', 'v' => '42']]]]], true);
     $storage->store('12345678901234', ['grandeur' => [['unite' => 'Wh', 'points' => [['d' => '2026-05-01 00:00:00', 'v' => '45']]]]], true);
     $storage->store('12345678901234', ['grandeur' => [['unite' => 'Wh', 'points' => [['d' => '2026-05-01 01:00:00', 'v' => '9']]]]], false);
+    $storage->store('12345678901234', ['grandeur' => [['unite' => 'Wh', 'points' => [['d' => '2026-05-01 01:00:00', 'v' => '11']]]]], false);
 
     expect(DB::connection('testing')->table('laralinky_meters')->count())->toBe(1)
         ->and(DB::connection('testing')->table('laralinky_daily_consumption')->count())->toBe(1)
         ->and((float) DB::connection('testing')->table('laralinky_daily_consumption')->value('value'))->toBe(45.0)
-        ->and(DB::connection('testing')->table('laralinky_hourly_consumption')->count())->toBe(1);
+        ->and(DB::connection('testing')->table('laralinky_hourly_consumption')->count())->toBe(1)
+        ->and((float) DB::connection('testing')->table('laralinky_hourly_consumption')->value('value'))->toBe(11.0)
+        ->and(DB::connection('testing')->table('laralinky_meters')->value('prm'))->toBe('12345678901234')
+        ->and((new Meter)->getTable())->toBe('laralinky_meters')
+        ->and((new DailyConsumption)->getTable())->toBe('laralinky_daily_consumption')
+        ->and((new HourlyConsumption)->getTable())->toBe('laralinky_hourly_consumption')
+        ->and(DailyConsumption::query()->firstOrFail()->meter->prm)->toBe('12345678901234')
+        ->and(HourlyConsumption::query()->firstOrFail()->meter->prm)->toBe('12345678901234');
 });
