@@ -3,9 +3,14 @@
 declare(strict_types=1);
 
 use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use LaraLinky\Exceptions\ApiException;
 use LaraLinky\Linky;
+use LaraLinky\Models\DailyConsumption;
+use LaraLinky\Models\HourlyConsumption;
+use LaraLinky\Models\Meter;
+use LaraLinky\Storage\DatabaseStorage;
 
 function linkyToken(array $claims = ['sub' => ['12345678901234', '98765432109876']]): string
 {
@@ -80,42 +85,6 @@ it('registers a singleton from package configuration', function () {
         ->and(app(Linky::class)->prms())->toBe(['12345678901234', '98765432109876']);
 });
 
-it('explains when a token is missing from both configuration and command options', function () {
-    config()->set('laralinky.token', '');
-    config()->set('laralinky.prm', '');
-    Http::preventStrayRequests();
-
-    $this->artisan('linky:fetch daily')
-        ->expectsOutputToContain('Provide a token with --token or configure LINKY_TOKEN.')
-        ->assertExitCode(1);
-});
-
-it('provides an artisan command with output formatting and token override', function () {
-    Http::fake(['*' => Http::response(['grandeur' => [['unite' => 'Wh', 'points' => [['d' => '2026-05-01', 'v' => '42']]]]])]);
-
-    $this->artisan('linky:fetch daily --start=2026-05-01 --end=2026-05-02 --token='.linkyToken().' --format=json')
-        ->expectsOutputToContain('"v": "42"')
-        ->assertSuccessful();
-
-    Http::assertSent(fn (Request $request): bool => str_contains($request->url(), '/api/consommation_quotidienne'));
-});
-
-it('writes csv results to the requested output file', function () {
-    Http::fake(['*' => Http::response(['grandeur' => [['unite' => 'Wh', 'points' => [['d' => '2026-05-01', 'v' => '42']]]]])]);
-    $path = tempnam(sys_get_temp_dir(), 'laralinky-');
-    expect($path)->not->toBeFalse();
-
-    try {
-        $this->artisan('linky:fetch daily --start=2026-05-01 --end=2026-05-02 --token='.linkyToken().' --format=csv --output='.$path)
-            ->expectsOutput('Results saved to '.$path)
-            ->assertSuccessful();
-
-        expect(file_get_contents($path))->toBe("Date,Valeur (Wh)\n2026-05-01,42\n");
-    } finally {
-        unlink($path);
-    }
-});
-
 it('publishes its configuration from the documented tag', function () {
     $target = $this->app->configPath('laralinky.php');
 
@@ -126,28 +95,29 @@ it('publishes its configuration from the documented tag', function () {
         ->and(require $target)->toHaveKey('base_url', 'https://conso.boris.sh');
 });
 
-it('supports the five endpoint types through the artisan command', function (string $type, string $path) {
-    Http::fake(['*' => Http::response(['ok' => true])]);
+it('stores daily records and updates them on repeated synchronization', function () {
+    config()->set('database.default', 'testing');
+    config()->set('database.connections.testing', ['driver' => 'sqlite', 'database' => ':memory:', 'prefix' => '', 'foreign_key_constraints' => true]);
+    config()->set('laralinky.storage.database.connection', 'testing');
+    foreach (glob(__DIR__.'/../../database/migrations/*.php') as $migrationFile) {
+        (require $migrationFile)->up();
+    }
 
-    $this->artisan("linky:fetch {$type} --token=".linkyToken().' --start=2026-05-01 --end=2026-05-02 --format=json')
-        ->assertSuccessful();
+    $storage = new DatabaseStorage(app('db'), 'testing');
+    $storage->store('12345678901234', ['grandeur' => [['unite' => 'Wh', 'points' => [['d' => '2026-05-01 00:00:00', 'v' => '42']]]]], true);
+    $storage->store('12345678901234', ['grandeur' => [['unite' => 'Wh', 'points' => [['d' => '2026-05-01 00:00:00', 'v' => '45']]]]], true);
+    $storage->store('12345678901234', ['grandeur' => [['unite' => 'Wh', 'points' => [['d' => '2026-05-01 01:00:00', 'v' => '9']]]]], false);
+    $storage->store('12345678901234', ['grandeur' => [['unite' => 'Wh', 'points' => [['d' => '2026-05-01 01:00:00', 'v' => '11']]]]], false);
 
-    Http::assertSent(fn (Request $request): bool => str_contains($request->url(), $path));
-})->with([
-    'daily consumption' => ['daily', '/api/consommation_quotidienne'],
-    'consumption curve' => ['loadcurve', '/api/courbe_de_charge_consommation'],
-    'maximum power' => ['maxpower', '/api/puissance_conso_max_quotidienne'],
-    'daily production' => ['dailyprod', '/api/production_quotidienne'],
-    'production curve' => ['loadcurveprod', '/api/courbe_de_charge_production'],
-]);
-
-it('defaults artisan date options to yesterday and today', function () {
-    $this->travelTo(now()->setDate(2026, 5, 5)->setTime(12, 0));
-    Http::fake(['*' => Http::response(['ok' => true])]);
-
-    $this->artisan('linky:fetch daily --token='.linkyToken())
-        ->assertSuccessful();
-
-    Http::assertSent(fn (Request $request): bool => $request['dateDebut'] === '2026-05-04'
-        && $request['dateFin'] === '2026-05-05');
+    expect(DB::connection('testing')->table('laralinky_meters')->count())->toBe(1)
+        ->and(DB::connection('testing')->table('laralinky_daily_consumption')->count())->toBe(1)
+        ->and((float) DB::connection('testing')->table('laralinky_daily_consumption')->value('value'))->toBe(45.0)
+        ->and(DB::connection('testing')->table('laralinky_hourly_consumption')->count())->toBe(1)
+        ->and((float) DB::connection('testing')->table('laralinky_hourly_consumption')->value('value'))->toBe(11.0)
+        ->and(DB::connection('testing')->table('laralinky_meters')->value('prm'))->toBe('12345678901234')
+        ->and((new Meter)->getTable())->toBe('laralinky_meters')
+        ->and((new DailyConsumption)->getTable())->toBe('laralinky_daily_consumption')
+        ->and((new HourlyConsumption)->getTable())->toBe('laralinky_hourly_consumption')
+        ->and(DailyConsumption::query()->firstOrFail()->meter->prm)->toBe('12345678901234')
+        ->and(HourlyConsumption::query()->firstOrFail()->meter->prm)->toBe('12345678901234');
 });

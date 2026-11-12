@@ -144,6 +144,7 @@ final class Linky
             throw new ApiException('Conso API returned an invalid JSON response.', $response->status(), $response->body(), response: $response);
         }
 
+        /** @var array<string, mixed> $data */
         return $data;
     }
 

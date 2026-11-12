@@ -64,19 +64,19 @@
             "@php vendor/bin/testbench serve --ansi"
         ],
         "lint": [
-            "vendor/bin/pint --parallel"
+            "vendor/bin/pint"
         ],
         "lint:check": [
-            "vendor/bin/pint --parallel --test"
+            "vendor/bin/pint --test"
         ],
         "analyse": [
-            "vendor/bin/phpstan analyse"
+            "@php -d memory_limit=1G vendor/bin/phpstan analyse --debug"
         ],
         "test:types": [
             "@php -d memory_limit=1G vendor/bin/pest --type-coverage --min=100"
         ],
         "test:unit": [
-            "vendor/bin/pest --parallel"
+            "vendor/bin/pest"
         ],
         "test": [
             "@analyse",

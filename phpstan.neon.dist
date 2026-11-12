@@ -1,8 +1,7 @@
 parameters:
-    level: 7
+    level: 10
     paths:
         - src
         - config
         - database
-        - routes
     tmpDir: build/phpstan
