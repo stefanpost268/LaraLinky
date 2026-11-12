@@ -10,4 +10,10 @@ return [
     'base_url' => (string) Env::get('LINKY_BASE_URL', 'https://conso.boris.sh'),
     'timeout' => (float) Env::get('LINKY_TIMEOUT', 15),
     'user_agent' => (string) Env::get('LINKY_USER_AGENT', 'LaraLinky'),
+    'storage' => [
+        'database' => [
+            'connection' => null,
+            'table_prefix' => 'laralinky_',
+        ],
+    ],
 ];
