@@ -55,13 +55,34 @@ Get a token from [conso.boris.sh](https://conso.boris.sh) after authorizing data
 
 ## What you can do with LaraLinky
 
-LaraLinky gives your application three ways to work with Linky data:
+LaraLinky can retrieve data from the Conso API when your application needs it, or regularly synchronize consumption data into your database so you can query it later. These are two separate ways to use the package:
 
-- Retrieve consumption, production, load curve, and maximum power data directly from the Conso API.
-- Store daily consumption and hourly consumption load curve data in your application's database, then query it with Eloquent.
-- Synchronize stored consumption data on demand or through Laravel's scheduler.
+1. **Request data directly.** Call the `Linky` facade from your application to retrieve consumption, production, load curve, or maximum power data. The response is returned to your code and is not saved automatically.
+2. **Synchronize consumption data.** Run `linky:sync` manually, call the sync facade method, or let Laravel's scheduler run it hourly. Sync stores daily consumption and hourly load curve records in LaraLinky's database tables. Production and maximum power data are available through direct API requests, but are not included in sync.
 
-The package does not store API responses automatically. Only the sync action writes daily and hourly consumption records to the package tables.
+### Set up scheduled synchronization
+
+To store consumption data automatically:
+
+1. Configure `LINKY_TOKEN` in your application's `.env` file. Optionally set `LINKY_PRM` to choose the PRM used by direct facade requests. Scheduled sync processes every PRM in the token.
+2. Publish and run LaraLinky's migrations:
+
+   ```bash
+   php artisan vendor:publish --tag=laralinky-migrations
+   php artisan migrate
+   ```
+
+3. Enable Laravel's scheduler on your server. Add this cron entry to run the scheduler every minute:
+
+   ```cron
+   * * * * * cd /path/to/your-app && php artisan schedule:run >> /dev/null 2>&1
+   ```
+
+   Alternatively, keep `php artisan schedule:work` running as a supervised process. LaraLinky registers `linky:sync` to run hourly, so each scheduled run syncs the default date range: two days ago through today.
+
+You can also request a sync at any time. For example, run `php artisan linky:sync --type=daily` to sync daily records for the default date range. See [Manual sync](#manual-sync) for date and PRM options.
+
+After the first sync, query the stored data with LaraLinky's facade or Eloquent models as shown in [Store and query consumption data](#store-and-query-consumption-data). If you only need an API response immediately, use the [direct API methods](#retrieve-data-from-the-api); those do not require the package migrations.
 
 ## Retrieve data from the API
 
