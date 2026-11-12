@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         $tableName = Config::string('laralinky.storage.database.table_prefix', 'laralinky_').'meters';
-        Schema::connection(Config::get('laralinky.storage.database.connection'))->create($tableName, function (Blueprint $table): void {
+        Schema::connection(is_string(Config::get('laralinky.storage.database.connection')) ? Config::get('laralinky.storage.database.connection') : null)->create($tableName, function (Blueprint $table): void {
             $table->string('prm')->primary();
             $table->timestamps();
         });
@@ -21,6 +21,6 @@ return new class extends Migration
     public function down(): void
     {
         $tableName = Config::string('laralinky.storage.database.table_prefix', 'laralinky_').'meters';
-        Schema::connection(Config::get('laralinky.storage.database.connection'))->dropIfExists($tableName);
+        Schema::connection(is_string(Config::get('laralinky.storage.database.connection')) ? Config::get('laralinky.storage.database.connection') : null)->dropIfExists($tableName);
     }
 };
