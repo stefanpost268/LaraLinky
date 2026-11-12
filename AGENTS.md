@@ -1,4 +1,4 @@
-# Html
+# LaraLinky
 
 This repository is a Laravel package. Keep the package focused, idiomatic, and easy for Laravel developers to install, test, and maintain.
 
